@@ -63,9 +63,10 @@ def create_teams(number_of_labs = 8):
         xlsPath = os.path.join(folderPath, 'etudiants.xlsx')
         if not os.path.exists(xlsPath):
             raise ValueError('Could not find student file at expected location ' + xlsPath)
-        etudiants = read_excel(xlsPath)
+        students = read_excel(xlsPath)
         pairings = {}
-        for e in etudiants:
+        studentsInTrios = []
+        for e in students:
             pairings[e] = []
         labs = []
 
@@ -74,66 +75,104 @@ def create_teams(number_of_labs = 8):
             if reuse:
                 if os.path.exists(os.path.join(folderPath, str(l) + '.xlsx')):
                     oldTeams,oldStudents = read_teams(os.path.join(folderPath, str(l) + '.xlsx'))
-                    if set(oldStudents) != set(etudiants):
+                    if set(oldStudents) != set(students):
                         raise ValueError('saved labs do not have the same students than current student file')
                     teams = oldTeams
                 else:
                     reuse = False
+
             if len(teams) == 0:
-                remainingStudents = [i for i in etudiants]
+                trioTeam = []
+                preferredStudentsForTrio = []
+                if len(students) - len(studentsInTrios) < 3:
+                    resetTrios = easygui.ynbox(
+                        "Too many labs and not enough students, we need them to be in trios a second time. Allow it?")
+                    if not resetTrios:
+                        raise ValueError(
+                            'Too many labs and not enough students to have them participate in only one trio. Aborting.')
+                    else:
+                        preferredStudentsForTrio = [s for s in students if s not in studentsInTrios]
+                        studentsInTrios = []
+                remainingStudents = [i for i in students]
                 random.shuffle(remainingStudents)
                 attempts = 0
                 while len(remainingStudents) != 0:
-                    while len(remainingStudents) > 1:
+                    success = False
+                    firstStudent = None
+                    secondStudent = None
+                    if len(remainingStudents) % 2 != 0: # we build the trio first
+                        if len(trioTeam) != 0:
+                            raise ValueError('Programming error : trio team already exists')
+                        if len(preferredStudentsForTrio) > 2:
+                            raise ValueError('Programming error : preferredStudentForTrio should have 0, 1 or 2 elements')
+                        if preferredStudentsForTrio:
+                            firstStudent = preferredStudentsForTrio.pop()
+                            remainingStudents.remove(firstStudent)
+                        else:
+                            for i in range(len(remainingStudents)):
+                                if remainingStudents[i] not in studentsInTrios:
+                                    firstStudent = remainingStudents.pop(i)
+                                    break
+                        if firstStudent is None:
+                            raise ValueError('All students have already been in trios')
+                        firstStudentPairings = pairings[firstStudent]
+                        if preferredStudentsForTrio and preferredStudentsForTrio[0] not in firstStudentPairings:
+                            secondStudent = preferredStudentsForTrio.pop()
+                            remainingStudents.remove(secondStudent)
+                        else:
+                            for i in range(len(remainingStudents)):
+                                if remainingStudents[i] not in studentsInTrios and \
+                                        remainingStudents[i] not in firstStudentPairings:
+                                    secondStudent = remainingStudents.pop(i)
+                                    break
+                        preferredStudentsForTrio = []
+                        if secondStudent is not None:
+                            thirdStudent = None
+                            bothStudentsPairings = firstStudentPairings + pairings[secondStudent]
+                            for i in range(len(remainingStudents)):
+                                if remainingStudents[i] not in studentsInTrios and \
+                                        remainingStudents[i] not in bothStudentsPairings:
+                                    thirdStudent = remainingStudents.pop(i)
+                                    break
+                            if thirdStudent is not None:
+                                trioTeam = [firstStudent, secondStudent, thirdStudent]
+                                success = True
+                    else:
                         firstStudent = remainingStudents.pop()
                         firstStudentPairings = pairings[firstStudent]
-                        success = False
                         for i in range(len(remainingStudents)):
                             if remainingStudents[i] not in firstStudentPairings:
                                 teams.append([firstStudent,remainingStudents.pop(i)])
                                 success = True
                                 break
-                        if not success:
+                    if not success:
+                        attempts += 1
+                        if firstStudent is not None:
                             remainingStudents.append(firstStudent)
-                            print('fail ' + str(attempts) + ' with remaining students ' + str(remainingStudents))
-                            attempts += 1
-                            if attempts % 10000 == 0:
-                                raise ValueError('Found no solution after 10000 iterations. Aborting.')
-                            elif attempts % 1000 == 0:
-                                random.shuffle(teams)
-                                remainingStudents += teams.pop()
-                                remainingStudents += teams.pop()
-                                remainingStudents += teams.pop()
-                                attempts += 1
-                                random.shuffle(remainingStudents)
-                            elif attempts % 100 == 0:
-                                random.shuffle(teams)
-                                remainingStudents += teams.pop()
-                                remainingStudents += teams.pop()
-                            elif attempts % 10 == 0:
-                                random.shuffle(teams)
-                                remainingStudents += teams.pop()
-                                random.shuffle(remainingStudents)
-                            else:
-                                random.shuffle(remainingStudents)
-
-                    if len(remainingStudents) == 1:
-                        lastStudent = remainingStudents.pop()
-                        lastStudentPairings = pairings[lastStudent]
-                        success = False
-                        for team in teams:
-                            if team[0] not in lastStudentPairings and team[1] not in lastStudentPairings:
-                                team.append(lastStudent)
-                                success = True
-                                break
-                        if not success:
-                            remainingStudents.append(lastStudent)
-                            print('fail ' + str(attempts) + ' with remaining students ' + str(remainingStudents))
+                        if secondStudent is not None:
+                            remainingStudents.append(secondStudent)
+                        print('fail ' + str(attempts) + ' with remaining students ' + str(remainingStudents))
+                        if attempts % 1e5 == 0:
+                            raise ValueError('Found no solution after 100000 iterations. Aborting.')
+                        elif attempts % 1e2 == 0:
+                            #we neeed to pop teams
                             random.shuffle(teams)
-                            remainingStudents += teams.pop()
-                            random.shuffle(remainingStudents)
+                            for powerOf10 in range(2,5):
+                                if attempts % pow(10,powerOf10) == 0:
+                                    if len(teams) > 0 :
+                                        remainingStudents += teams.pop()
+                                    else:
+                                        if trioTeam:
+                                            remainingStudents += trioTeam
+                                            trioTeam = []
+                                        break
+                        random.shuffle(remainingStudents)
+
 
             #success
+            if trioTeam:
+                studentsInTrios += trioTeam
+                teams.append(trioTeam)
             for team in teams:
                 for student in team:
                     otherStudents = [s for s in team if s is not student]

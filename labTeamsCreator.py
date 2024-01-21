@@ -16,53 +16,59 @@ def read_excel(path) -> [str]:
 			break
 	return students
 
-def read_teams(path) -> ([[str]],[str]):
+def read_teams(path,teamNb) -> ([[str]],[str]):
+	if not os.path.exists(path):
+		return [],[]
 	workbook = openpyxl.load_workbook(path)
-	worksheet = workbook.worksheets[0]
+	if len(workbook.worksheets) < teamNb:
+		return [],[]
+	worksheet = workbook.worksheets[teamNb - 1]
 	teams = []
 	allStudents = []
 	for i in range(2,101):
-		firstLastName = str(worksheet.cell(row = i, column = 2).value)
-		if firstLastName == '' or firstLastName == 'None':
+		firstStudent = str(worksheet.cell(row = i, column = 2).value)
+		if firstStudent == '' or firstStudent == 'None':
 			break
-		firstFirstName = str(worksheet.cell(row = i, column = 3).value)
-		firstStudent = firstLastName + ' ' + firstFirstName
-		secondLastName = str(worksheet.cell(row=i, column=4).value)
-		if secondLastName == '' or secondLastName == 'None':
+		secondStudent = str(worksheet.cell(row=i, column=3).value)
+		if secondStudent == '' or secondStudent == 'None':
 			raise ValueError('Invalid team in retrieved lab ' + os.path.basename(path) + ': only found 1 student in the team.')
-		secondFirstName = str(worksheet.cell(row = i, column = 5).value)
-		secondStudent = secondLastName + ' ' + secondFirstName
-		thirdLastName = str(worksheet.cell(row=i, column=6).value)
-		if thirdLastName == '' or thirdLastName == 'None':
+		thirdStudent = str(worksheet.cell(row=i, column=4).value)
+		if thirdStudent == '' or thirdStudent == 'None':
 			teams.append([firstStudent,secondStudent])
 			allStudents.append(firstStudent)
 			allStudents.append(secondStudent)
 		else:
-			thirdFirstName = str(worksheet.cell(row = i, column = 7).value)
-			thirdStudent = thirdLastName + ' ' + thirdFirstName
 			teams.append([firstStudent,secondStudent,thirdStudent])
 			allStudents.append(firstStudent)
 			allStudents.append(secondStudent)
 			allStudents.append(thirdStudent)
 	return teams,allStudents
 
-def write_teams(path,teams):
+def write_teams(path,labs):
 	if os.path.exists(path):
 		os.remove(path)
 	workbook = openpyxl.Workbook()
-	worksheet = workbook.worksheets[0]
-	worksheet.cell(row = 1,column = 1).value = "Équipe"
-	worksheet.cell(row = 1,column = 2).value = "Nom 1"
-	worksheet.cell(row = 1,column = 3).value = "Nom 2"
-	worksheet.cell(row = 1,column = 4).value = "Nom 3"
-	rowNb = 2
-	for team in teams:
-		worksheet.cell(row = rowNb,column = 1).value = str(rowNb-1)
-		colNb = 2
-		for student in team:
-			worksheet.cell(row = rowNb,column = colNb).value = student
-			colNb += 1
-		rowNb += 1
+	sheetNb = 0
+	for lab in labs:
+		if sheetNb == 0:
+			worksheet = workbook.worksheets[sheetNb]
+			worksheet.title = str(sheetNb+1)
+		else:
+			workbook.create_sheet(str(sheetNb + 1))
+			worksheet = workbook.worksheets[sheetNb]
+		worksheet.cell(row = 1,column = 1).value = "Équipe"
+		worksheet.cell(row = 1,column = 2).value = "Nom 1"
+		worksheet.cell(row = 1,column = 3).value = "Nom 2"
+		worksheet.cell(row = 1,column = 4).value = "Nom 3"
+		rowNb = 2
+		for team in lab:
+			worksheet.cell(row = rowNb,column = 1).value = str(rowNb-1)
+			colNb = 2
+			for student in team:
+				worksheet.cell(row = rowNb,column = colNb).value = student
+				colNb += 1
+			rowNb += 1
+		sheetNb += 1
 	workbook.save(path)
 
 def create_teams(number_of_labs = 8):
@@ -70,7 +76,8 @@ def create_teams(number_of_labs = 8):
 	number_of_labs = easygui.enterbox("How many labs?")
 	if number_of_labs is None:
 		return
-	reuse = easygui.ynbox("Reuse labs already in folder?")
+	#reuse = easygui.ynbox("Reuse labs already in folder?")
+	reuse = False
 	try:
 		if not number_of_labs.isnumeric():
 			raise ValueError('Specified number of labs is not a number')
@@ -90,8 +97,8 @@ def create_teams(number_of_labs = 8):
 			teams = []
 			if reuse:
 				current_lab = len(reusedLabs) + 1
-				if os.path.exists(os.path.join(folderPath, str(current_lab) + '.xlsx')):
-					oldTeams,oldStudents = read_teams(os.path.join(folderPath, str(current_lab) + '.xlsx'))
+				if os.path.exists(os.path.join(folderPath, 'teams.xlsx')):
+					oldTeams,oldStudents = read_teams(os.path.join(folderPath, 'teams.xlsx'),current_lab)
 					if set(oldStudents) != set(students):
 						raise ValueError('saved labs do not have the same students than current student file')
 					teams = oldTeams
@@ -208,12 +215,7 @@ def create_teams(number_of_labs = 8):
 			labs.append(teams)
 
 		allLabs = reusedLabs + labs
-		labNb = 1
-		for lab in reusedLabs:
-			labNb += 1
-		for lab in labs:
-			write_teams(os.path.join(folderPath,str(labNb)+'.xlsx'),lab)
-			labNb += 1
+		write_teams(os.path.join(folderPath,'teams.xlsx'),allLabs)
 
 	except Exception as e:
 		easygui.msgbox(str(e),'error')

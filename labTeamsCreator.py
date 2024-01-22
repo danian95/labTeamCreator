@@ -2,6 +2,9 @@ import os
 import random
 import easygui
 import openpyxl
+from copy import copy
+import pickle
+import sys
 
 def read_excel(path) -> [str]:
 	workbook = openpyxl.load_workbook(path, data_only = True)
@@ -44,10 +47,81 @@ def read_teams(path,teamNb) -> ([[str]],[str]):
 			allStudents.append(thirdStudent)
 	return teams,allStudents
 
+def copyCell(destCell,orgCell,value):
+	destCell.font = copy(orgCell.font)
+	destCell.border = copy(orgCell.border)
+	destCell.fill = copy(orgCell.fill)
+	destCell.number_format = copy(orgCell.number_format)
+	destCell.protection = copy(orgCell.protection)
+	destCell.alignment = copy(orgCell.alignment)
+	destCell.value = value
+def write_template(teams,sheet,labNb):
+	try:
+		templatePath = os.path.join(sys._MEIPASS,'template.xlsx')
+	except Exception:
+		templatePath = 'template.xlsx'
+	template = openpyxl.load_workbook(templatePath).worksheets[0]
+	rowNb = len(teams)
+	colNb = 2
+	for team in teams:
+		if len(team) == 3:
+			colNb = 3
+
+	sheet.merge_cells(start_row=6, start_column=8, end_row=6, end_column=8 + colNb)
+	sheet.merge_cells(start_row=7, start_column=8, end_row=7, end_column=8 + colNb)
+	sheet.cell(6,8).value = 'Laboratoire ' + str(labNb)
+	sheet.cell(6,8).alignment = copy(template.cell(1,1).alignment)
+	copyCell(sheet.cell(8,8),template.cell(1,1),'Équipe')
+	copyCell(sheet.cell(9, 8), template.cell(2, 1), 1)
+	copyCell(sheet.cell(8,9), template.cell(1, 2), 'Nom 1')
+	copyCell(sheet.cell(9, 9), template.cell(2, 2), teams[0][0])
+	sheet.column_dimensions[sheet.cell(1, 9).column_letter].width = 25
+	if colNb == 3:
+		thirdStudent =  teams[0][2] if len(teams[0]) == 3 else ''
+		copyCell(sheet.cell(8, 10), template.cell(1, 2), 'Nom 2')
+		copyCell(sheet.cell(9, 10), template.cell(2, 2), teams[0][1])
+		sheet.column_dimensions[sheet.cell(1, 10).column_letter].width = 25
+		copyCell(sheet.cell(8, 11), template.cell(1, 3), 'Nom 3')
+		copyCell(sheet.cell(9, 11), template.cell(2, 3), thirdStudent)
+		sheet.column_dimensions[sheet.cell(1, 11).column_letter].width = 25
+	else:
+		copyCell(sheet.cell(8, 10), template.cell(1, 3), 'Nom 2')
+		copyCell(sheet.cell(9, 10), template.cell(2, 3), teams[0][1])
+		sheet.column_dimensions[sheet.cell(1, 10).column_letter].width = 25
+	for r in range(2,rowNb):
+		if r % 2 == 0:
+			tr = 3
+		else:
+			tr = 4
+		team = teams[r-1]
+		copyCell(sheet.cell(8+r, 8), template.cell(tr, 1), r)
+		copyCell(sheet.cell(8+r, 9), template.cell(tr, 2), team[0])
+		if colNb == 3:
+			thirdStudent = team[2] if len(team) == 3 else ''
+			copyCell(sheet.cell(8+r, 10), template.cell(tr, 2), team[1])
+			copyCell(sheet.cell(8+r, 11), template.cell(tr, 3), thirdStudent)
+		else:
+			copyCell(sheet.cell(8+r, 10), template.cell(tr, 3), team[1])
+
+	if rowNb % 2 == 0:
+		tr = 5
+	else:
+		tr = 6
+	lastTeam = teams[-1]
+	copyCell(sheet.cell(8+rowNb, 8), template.cell(tr, 1), rowNb)
+	copyCell(sheet.cell(8+rowNb, 9), template.cell(tr, 2), lastTeam[0])
+	if colNb == 3:
+		thirdStudent = lastTeam[2] if len(lastTeam) == 3 else ''
+		copyCell(sheet.cell(8+rowNb, 10), template.cell(tr, 2), lastTeam[1])
+		copyCell(sheet.cell(8+rowNb, 11), template.cell(tr, 3), thirdStudent)
+	else:
+		copyCell(sheet.cell(8+rowNb, 10), template.cell(tr, 3), lastTeam[1])
+
 def write_teams(path,labs):
 	if os.path.exists(path):
 		os.remove(path)
 	workbook = openpyxl.Workbook()
+
 	sheetNb = 0
 	for lab in labs:
 		if sheetNb == 0:
@@ -56,13 +130,14 @@ def write_teams(path,labs):
 		else:
 			workbook.create_sheet(str(sheetNb + 1))
 			worksheet = workbook.worksheets[sheetNb]
+		write_template(lab,worksheet,sheetNb + 1)
 		worksheet.cell(row = 1,column = 1).value = "Équipe"
 		worksheet.cell(row = 1,column = 2).value = "Nom 1"
 		worksheet.cell(row = 1,column = 3).value = "Nom 2"
 		worksheet.cell(row = 1,column = 4).value = "Nom 3"
 		rowNb = 2
 		for team in lab:
-			worksheet.cell(row = rowNb,column = 1).value = str(rowNb-1)
+			worksheet.cell(row = rowNb,column = 1).value = rowNb-1
 			colNb = 2
 			for student in team:
 				worksheet.cell(row = rowNb,column = colNb).value = student
@@ -71,13 +146,14 @@ def write_teams(path,labs):
 		sheetNb += 1
 	workbook.save(path)
 
-def create_teams(number_of_labs = 8):
+def create_teams(number_of_labs = None, reuse = None):
 	folderPath = os.getcwd()
-	number_of_labs = easygui.enterbox("How many labs?")
+	if number_of_labs is None:
+		number_of_labs = easygui.enterbox("How many labs?")
 	if number_of_labs is None:
 		return
-	#reuse = easygui.ynbox("Reuse labs already in folder?")
-	reuse = False
+	if reuse is None:
+		reuse = easygui.ynbox("Reuse labs already in folder?")
 	try:
 		if not number_of_labs.isnumeric():
 			raise ValueError('Specified number of labs is not a number')
@@ -99,9 +175,10 @@ def create_teams(number_of_labs = 8):
 				current_lab = len(reusedLabs) + 1
 				if os.path.exists(os.path.join(folderPath, 'teams.xlsx')):
 					oldTeams,oldStudents = read_teams(os.path.join(folderPath, 'teams.xlsx'),current_lab)
-					if set(oldStudents) != set(students):
-						raise ValueError('saved labs do not have the same students than current student file')
-					teams = oldTeams
+					if oldTeams:
+						if set(oldStudents) != set(students):
+							raise ValueError('saved labs do not have the same students than current student file')
+						teams = oldTeams
 				else:
 					reuse = False
 			if len(teams) != 0:
@@ -216,12 +293,13 @@ def create_teams(number_of_labs = 8):
 
 		allLabs = reusedLabs + labs
 		write_teams(os.path.join(folderPath,'teams.xlsx'),allLabs)
+		easygui.msgbox('Teams created successfully, ' + str(len(reusedLabs)) + ' labs were reused.', 'Success')
 
 	except Exception as e:
 		easygui.msgbox(str(e),'error')
 		raise e
 
 
-
 if __name__ == '__main__':
-	create_teams(10)
+	#create_teams('5',True)
+	create_teams()

@@ -69,23 +69,23 @@ def write_template(teams,sheet,labNb):
 
 	sheet.merge_cells(start_row=6, start_column=8, end_row=6, end_column=8 + colNb)
 	sheet.merge_cells(start_row=7, start_column=8, end_row=7, end_column=8 + colNb)
-	sheet.cell(6,8).value = 'Laboratoire ' + str(labNb)
+	sheet.cell(6,8).value = 'Laboratory ' + str(labNb)
 	sheet.cell(6,8).alignment = copy(template.cell(1,1).alignment)
-	copyCell(sheet.cell(8,8),template.cell(1,1),'Équipe')
+	copyCell(sheet.cell(8,8),template.cell(1,1),'Lab')
 	copyCell(sheet.cell(9, 8), template.cell(2, 1), 1)
-	copyCell(sheet.cell(8,9), template.cell(1, 2), 'Nom 1')
+	copyCell(sheet.cell(8,9), template.cell(1, 2), 'Name 1')
 	copyCell(sheet.cell(9, 9), template.cell(2, 2), teams[0][0])
 	sheet.column_dimensions[sheet.cell(1, 9).column_letter].width = 25
 	if colNb == 3:
 		thirdStudent =  teams[0][2] if len(teams[0]) == 3 else ''
-		copyCell(sheet.cell(8, 10), template.cell(1, 2), 'Nom 2')
+		copyCell(sheet.cell(8, 10), template.cell(1, 2), 'Name 2')
 		copyCell(sheet.cell(9, 10), template.cell(2, 2), teams[0][1])
 		sheet.column_dimensions[sheet.cell(1, 10).column_letter].width = 25
-		copyCell(sheet.cell(8, 11), template.cell(1, 3), 'Nom 3')
+		copyCell(sheet.cell(8, 11), template.cell(1, 3), 'Name 3')
 		copyCell(sheet.cell(9, 11), template.cell(2, 3), thirdStudent)
 		sheet.column_dimensions[sheet.cell(1, 11).column_letter].width = 25
 	else:
-		copyCell(sheet.cell(8, 10), template.cell(1, 3), 'Nom 2')
+		copyCell(sheet.cell(8, 10), template.cell(1, 3), 'Name 2')
 		copyCell(sheet.cell(9, 10), template.cell(2, 3), teams[0][1])
 		sheet.column_dimensions[sheet.cell(1, 10).column_letter].width = 25
 	for r in range(2,rowNb):
@@ -131,10 +131,10 @@ def write_teams(path,labs):
 			workbook.create_sheet(str(sheetNb + 1))
 			worksheet = workbook.worksheets[sheetNb]
 		write_template(lab,worksheet,sheetNb + 1)
-		worksheet.cell(row = 1,column = 1).value = "Équipe"
-		worksheet.cell(row = 1,column = 2).value = "Nom 1"
-		worksheet.cell(row = 1,column = 3).value = "Nom 2"
-		worksheet.cell(row = 1,column = 4).value = "Nom 3"
+		worksheet.cell(row = 1,column = 1).value = "Lab"
+		worksheet.cell(row = 1,column = 2).value = "Name 1"
+		worksheet.cell(row = 1,column = 3).value = "Name 2"
+		worksheet.cell(row = 1,column = 4).value = "Name 3"
 		rowNb = 2
 		for team in lab:
 			worksheet.cell(row = rowNb,column = 1).value = rowNb-1
